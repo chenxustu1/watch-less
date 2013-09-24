@@ -80,7 +80,7 @@ var parseLessFile = function(input, output){
                 less.writeError(err, options);
             } else {
                 try {
-                    var css = tree.toCSS({ compress: options.compress });
+                    var css = tree.toCSS({ compress: options.compress, sourceMap: true });
                     if (output) {
                         var fd = fs.openSync(output, "w");
                         fs.writeSync(fd, css, 0, "utf8");
