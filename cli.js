@@ -11,16 +11,16 @@ var argv = require('optimist')
     .usage('Usage: {OPTIONS}')
     .wrap(80)
     .option('compress', {
-      alias: 'c',
-      desc: 'Compresses the output'
+        alias: 'c',
+        desc: 'Compresses the output'
     })
     .option('directory', {
-      alias: 'd',
-      desc: 'Define the root directory to watch, if this is not defined the program will use the current working directory.'
+        alias: 'd',
+        desc: 'Define the root directory to watch, if this is not defined the program will use the current working directory.'
     })
     .option('output', {
-      alias: 'r',
-      desc: 'CSS Output directory.'
+        alias: 'r',
+        desc: 'CSS Output directory.'
     })
     .option('extension', {
         alias: 'e',
@@ -35,13 +35,13 @@ var argv = require('optimist')
         desc: 'Sets the optimization level for the less compiler, options are: 0, 1, and 2'
     })
     .option('help', {
-      alias: 'h',
-      desc: 'Show this message'
+        alias: 'h',
+        desc: 'Show this message'
     })
     .check(function(argv) {
-      if (argv.help) {
-        throw '';
-      }
+        if (argv.help) {
+            throw '';
+        }
     }).argv;
 
 var rootDirectory = path.resolve(process.cwd(), argv.directory != null ? argv.directory : '');
@@ -76,22 +76,36 @@ var parseLessFile = function(input, output){
             optimization: options.optimization,
             filename: input
         }).parse(data, function (err, tree) {
-            if (err) {
-                less.writeError(err, options);
-            } else {
-                try {
-                    var css = tree.toCSS({ compress: options.compress, sourceMap: true });
-                    if (output) {
-                        var fd = fs.openSync(output, "w");
-                        fs.writeSync(fd, css, 0, "utf8");
-                    } else {
-                        util.print(css);
+                if (err) {
+                    less.writeError(err, options);
+                } else {
+                    try {
+                        var inputFileName=path.basename(input,".less");
+                        var inputDirectory=path.dirname(input);
+                        var css = tree.toCSS({
+                            compress: options.compress,
+                            sourceMap: true,
+                            sourceMapFilename: inputFileName+".less.map",
+                            sourceMapOutputFilename: inputFileName+".less.map",
+                            sourceMapBasepath: inputDirectory,
+                            sourceMapRootpath: "",
+                            writeSourceMap: function(output) {
+                                var filename = inputFileName+".less.map";
+                                fs.writeFileSync(filename, output, 'utf8');
+                            }
+                        });
+                        if (output) {
+                            var fd = fs.openSync(output, "w");
+                            fs.writeSync(fd, css, 0, "utf8");
+                            fs.closeSync(fd);
+                        } else {
+                            util.print(css);
+                        }
+                    } catch (e) {
+                        less.writeError(e, options);
                     }
-                } catch (e) {
-                    less.writeError(e, options);
                 }
-            }
-        });
+            });
     };
 };
 
@@ -112,7 +126,7 @@ walker.on('file', function(root, fileStats, next) {
         var filePath = path.resolve(root, fileStats.name);
         var newPath = ouputPath(filePath);
 
-        fs.watchFile(filePath, function(curr, prev){
+        fs.watchFile(filePath, { persistent: true, interval: 100 },function(curr, prev){
             console.log("updating: " + newPath);
             fs.readFile(filePath, 'utf-8', parseLessFile(filePath, newPath));
         });
